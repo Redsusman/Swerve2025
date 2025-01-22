@@ -2,13 +2,19 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.*;
 
+import java.io.IOException;
 import java.util.function.Supplier;
+
+import org.json.simple.parser.ParseException;
 
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.util.FileVersionException;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -249,5 +255,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             updateSimState(deltaTime, RobotController.getBatteryVoltage());
         });
         m_simNotifier.startPeriodic(kSimLoopPeriod);
+    }
+    public void followPath(String pathDirectory) {
+        try {
+            PathPlannerPath path = PathPlannerPath.fromPathFile(pathDirectory);
+        } catch (FileVersionException | IOException | ParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 }
