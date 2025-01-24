@@ -36,7 +36,7 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-
+import frc.robot.commands.DoNothing;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
 
 /**
@@ -148,7 +148,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                     (speeds, feedforward) -> setControl(new SwerveRequest.ApplyRobotSpeeds().withSpeeds(speeds)
                             .withWheelForceFeedforwardsX(feedforward.robotRelativeForcesX())
                             .withWheelForceFeedforwardsY(feedforward.robotRelativeForcesY())),
-                    new PPHolonomicDriveController(new PIDConstants(1, 0, 0), new PIDConstants(1, 0, 0)),//tune
+                    new PPHolonomicDriveController(new PIDConstants(1, 0, 0), new PIDConstants(1, 0, 0)), // tune
                     RobotConfig.fromGUISettings(),
                     () -> DriverStation.getAlliance().get() == Alliance.Blue ? false : true, this);
         } catch (IOException | ParseException e) {
@@ -294,15 +294,17 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         m_simNotifier.startPeriodic(kSimLoopPeriod);
     }
 
-    public void followPath(String pathDirectory) {
-        try {
-            PathPlannerPath path = PathPlannerPath.fromPathFile(pathDirectory);
-            AutoBuilder.followPath(path);
-        } catch (FileVersionException | IOException | ParseException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+    public Command followPath(String pathDirectory) {
+      PathPlannerPath path = null;
+    try {
+        path = PathPlannerPath.fromPathFile(pathDirectory);
+    } catch (FileVersionException | IOException | ParseException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
     }
-
-   
+    if(path == null) {
+        return new DoNothing();
+    }
+      return AutoBuilder.followPath(path);
+    }
 }
