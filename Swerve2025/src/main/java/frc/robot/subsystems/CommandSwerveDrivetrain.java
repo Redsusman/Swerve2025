@@ -9,6 +9,7 @@ import org.json.simple.parser.ParseException;
 
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.Utils;
+import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
@@ -147,14 +148,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                     (speeds, feedforward) -> setControl(new SwerveRequest.ApplyRobotSpeeds().withSpeeds(speeds)
                             .withWheelForceFeedforwardsX(feedforward.robotRelativeForcesX())
                             .withWheelForceFeedforwardsY(feedforward.robotRelativeForcesY())),
-                    new PPHolonomicDriveController(new PIDConstants(1, 0, 0), new PIDConstants(1, 0, 0)),
+                    new PPHolonomicDriveController(new PIDConstants(1, 0, 0), new PIDConstants(1, 0, 0)),//tune
                     RobotConfig.fromGUISettings(),
                     () -> DriverStation.getAlliance().get() == Alliance.Blue ? false : true, this);
         } catch (IOException | ParseException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-
     }
 
     /**
@@ -304,4 +304,5 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         }
     }
 
+   
 }
