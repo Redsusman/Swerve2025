@@ -14,6 +14,8 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.networktables.StructArrayPublisher;
 import edu.wpi.first.networktables.StructPublisher;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -116,6 +118,8 @@ public class Telemetry {
         SmartDashboard.putNumber("angle", state.Pose.getRotation().getDegrees());
         SmartDashboard.putNumber("poseX", state.Pose.getX());
         SmartDashboard.putNumber("poseY", state.Pose.getY());
+        SmartDashboard.putBoolean("isRedteam?", DriverStation.getAlliance().get() == Alliance.Blue);
+        SmartDashboard.putBoolean("isBlueteam?", DriverStation.getAlliance().get() == Alliance.Red);
 
         /* Telemeterize the module states to a Mechanism2d */
         for (int i = 0; i < 4; ++i) {
@@ -126,4 +130,5 @@ public class Telemetry {
             SmartDashboard.putData("Module " + i, m_moduleMechanisms[i]);
         }
     }
+    
 }
