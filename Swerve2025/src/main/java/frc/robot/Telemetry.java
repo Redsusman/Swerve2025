@@ -16,6 +16,7 @@ import edu.wpi.first.networktables.StructArrayPublisher;
 import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -53,6 +54,7 @@ public class Telemetry {
     private final NetworkTable table = inst.getTable("Pose");
     private final DoubleArrayPublisher fieldPub = table.getDoubleArrayTopic("robotPose").publish();
     private final StringPublisher fieldTypePub = table.getStringTopic(".type").publish();
+    // private final Field2d field = new Field2d();
 
     /* Mechanisms to represent the swerve module states */
     private final Mechanism2d[] m_moduleMechanisms = new Mechanism2d[] {
@@ -118,8 +120,9 @@ public class Telemetry {
         SmartDashboard.putNumber("angle", state.Pose.getRotation().getDegrees());
         SmartDashboard.putNumber("poseX", state.Pose.getX());
         SmartDashboard.putNumber("poseY", state.Pose.getY());
-        SmartDashboard.putBoolean("isRedteam?", DriverStation.getAlliance().get() == Alliance.Blue);
-        SmartDashboard.putBoolean("isBlueteam?", DriverStation.getAlliance().get() == Alliance.Red);
+        SmartDashboard.putBoolean("isRedteam?", DriverStation.getAlliance().get() == Alliance.Red);
+        SmartDashboard.putBoolean("isBlueteam?", DriverStation.getAlliance().get() == Alliance.Blue);
+        SmartDashboard.putBoolean("isBlueTeamDontFlipPath", DriverStation.getAlliance().get() == Alliance.Blue ? false : true);
 
         /* Telemeterize the module states to a Mechanism2d */
         for (int i = 0; i < 4; ++i) {
@@ -129,6 +132,8 @@ public class Telemetry {
 
             SmartDashboard.putData("Module " + i, m_moduleMechanisms[i]);
         }
+        // field.setRobotPose(state.Pose);
+        // SmartDashboard.putData(field);
     }
     
 }

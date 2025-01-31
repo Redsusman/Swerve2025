@@ -30,7 +30,7 @@ public class RobotContainer {
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second
                                                                                       // max angular velocity
 
-    private SendableChooser<Command> autoChooser = new SendableChooser<Command>();
+    private SendableChooser<Command> autoChooser;
     private SlewRateLimiter xLimiter = new SlewRateLimiter(7);
     private SlewRateLimiter yLimiter = new SlewRateLimiter(7);
     private SlewRateLimiter omegaLimiter = new SlewRateLimiter(Units.degreesToRadians(950));
@@ -48,8 +48,10 @@ public class RobotContainer {
 
     public final CommandSwerveDrivetrain drivetrain = CommandSwerveDrivetrain.getInstance();
     public RobotContainer() {
+        autoChooser = new SendableChooser<Command>();
         configureBindings();
         configureAutonomous();
+        
     }
 
     private void configureBindings() {
@@ -90,7 +92,10 @@ public class RobotContainer {
     }
 
     public void configureAutonomous() {
-        autoChooser.addOption("follow path", drivetrain.followPath("FirstRobotPath"));
+        autoChooser.addOption("followLine", drivetrain.executeAuto("StraightLineAuto", false));
+        autoChooser.addOption("followLinePath", drivetrain.followPath("StraightLineTwo"));
+        autoChooser.addOption("followLineAndRotate", drivetrain.executeAuto("FollowLineAndRotate", false));
+        autoChooser.addOption("threeside", drivetrain.executeAuto("ThreeSide", false));
         SmartDashboard.putData(autoChooser);
     }
  
