@@ -30,6 +30,7 @@ import com.pathplanner.lib.util.FlippingUtil;
 
 import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -39,6 +40,7 @@ import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -48,6 +50,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.LimelightHelpers;
+import frc.robot.LimelightHelpers.PoseEstimate;
 import frc.robot.commands.DoNothing;
 import frc.robot.generated.TunerConstants;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
@@ -156,6 +160,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             startSimThread();
         }
 
+        LimelightHelpers.setCameraPose_RobotSpace("", -0.0762, 0.0, 0.2921, 0.0, 0.0, 0.0);
         try {
 
             AutoBuilder.configure(
@@ -281,6 +286,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
     @Override
     public void periodic() {
+
         /*
          * Periodically try to apply the operator perspective.
          * If we haven't applied the operator perspective before, then we should apply
@@ -292,6 +298,16 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
          * This ensures driving behavior doesn't change until an explicit disable event
          * occurs during testing.
          */
+
+        LimelightHelpers.SetRobotOrientation("", this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
+                0.0);
+        PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed("");
+        Pose2d pose = poseEstimate.pose;
+        double timestamp = poseEstimate.timestampSeconds;
+
+        this.addVisionMeasurement(pose, timestamp); // check if should use Utis.getCurrentTimestampSeconds() instead of
+                                                    // poseEstimate.timestampSeconds
+
         if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
             DriverStation.getAlliance().ifPresent(allianceColor -> {
                 setOperatorPerspectiveForward(
@@ -344,6 +360,47 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
     public Command executeAuto(String autoName, boolean mirror) {
         return new PathPlannerAuto(autoName, mirror);
+    }
+
+    public Command driveToGoalTransform() {
+        return new Command() {
+            double[] goalPoseNumbers = LimelightHelpers.getTargetPose_RobotSpace(""); // check if this is targetPose,
+                                                                                      // transform it to a suitable
+                                                                                      // robotPose
+            Pose2d targetPose = new Pose2d(goalPoseNumbers[0], goalPoseNumbers[1],
+                    Rotation2d.fromDegrees(goalPoseNumbers[4]));
+            Pose2d currentPose = getState().Pose;
+            ProfiledPIDController xController = new ProfiledPIDController(1, 0, 0,
+                    new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
+            ProfiledPIDController yController = new ProfiledPIDController(1, 0, 0,
+                    new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
+            ProfiledPIDController thetaController = new ProfiledPIDController(1, 0, 0,
+                    new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
+
+            @Override
+            public void execute() {
+                double xVolts = xController.calculate(currentPose.getX(), targetPose.getX());
+                double yVolts = yController.calculate(currentPose.getY(), targetPose.getY());
+                double thetaVolts = thetaController.calculate(currentPose.getRotation().getRadians(),
+                        targetPose.getRotation().getRadians());
+                setControl(robotSpeeds.withSpeeds(new ChassisSpeeds(xVolts, yVolts, thetaVolts)));
+
+            }
+
+            @Override
+            public void end(boolean interrupted) {
+                setControl(new SwerveRequest.ApplyRobotSpeeds().withSpeeds(new ChassisSpeeds(0, 0, 0)));
+
+            }
+
+            @Override
+            public boolean isFinished() {
+                return xController.atSetpoint() && yController.atSetpoint() && thetaController.atSetpoint(); // omit if
+                                                                                                             // return
+                                                                                                             // to false
+                                                                                                             // instead
+            }
+        };
     }
 
 }
