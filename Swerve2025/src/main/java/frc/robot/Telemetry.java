@@ -4,6 +4,9 @@ import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -44,49 +47,59 @@ public class Telemetry {
     /* Robot swerve drive state */
     private final NetworkTable driveStateTable = inst.getTable("DriveState");
     private final StructPublisher<Pose2d> drivePose = driveStateTable.getStructTopic("Pose", Pose2d.struct).publish();
-    private final StructPublisher<ChassisSpeeds> driveSpeeds = driveStateTable.getStructTopic("Speeds", ChassisSpeeds.struct).publish();
-    private final StructArrayPublisher<SwerveModuleState> driveModuleStates = driveStateTable.getStructArrayTopic("ModuleStates", SwerveModuleState.struct).publish();
-    private final StructArrayPublisher<SwerveModuleState> driveModuleTargets = driveStateTable.getStructArrayTopic("ModuleTargets", SwerveModuleState.struct).publish();
-    private final StructArrayPublisher<SwerveModulePosition> driveModulePositions = driveStateTable.getStructArrayTopic("ModulePositions", SwerveModulePosition.struct).publish();
+    private final StructPublisher<ChassisSpeeds> driveSpeeds = driveStateTable
+            .getStructTopic("Speeds", ChassisSpeeds.struct).publish();
+    private final StructArrayPublisher<SwerveModuleState> driveModuleStates = driveStateTable
+            .getStructArrayTopic("ModuleStates", SwerveModuleState.struct).publish();
+    private final StructArrayPublisher<SwerveModuleState> driveModuleTargets = driveStateTable
+            .getStructArrayTopic("ModuleTargets", SwerveModuleState.struct).publish();
+    private final StructArrayPublisher<SwerveModulePosition> driveModulePositions = driveStateTable
+            .getStructArrayTopic("ModulePositions", SwerveModulePosition.struct).publish();
     private final DoublePublisher driveTimestamp = driveStateTable.getDoubleTopic("Timestamp").publish();
-    private final DoublePublisher driveOdometryFrequency = driveStateTable.getDoubleTopic("OdometryFrequency").publish();
+    private final DoublePublisher driveOdometryFrequency = driveStateTable.getDoubleTopic("OdometryFrequency")
+            .publish();
     /* Robot pose for field positioning */
     private final NetworkTable table = inst.getTable("Pose");
     private final DoubleArrayPublisher fieldPub = table.getDoubleArrayTopic("robotPose").publish();
     private final StringPublisher fieldTypePub = table.getStringTopic(".type").publish();
+    private StructArrayPublisher<Pose2d> poseReferences = table.getStructArrayTopic("PoseReferences", Pose2d.struct)
+            .publish();
     // private final Field2d field = new Field2d();
 
     /* Mechanisms to represent the swerve module states */
     private final Mechanism2d[] m_moduleMechanisms = new Mechanism2d[] {
-        new Mechanism2d(1, 1),
-        new Mechanism2d(1, 1),
-        new Mechanism2d(1, 1),
-        new Mechanism2d(1, 1),
+            new Mechanism2d(1, 1),
+            new Mechanism2d(1, 1),
+            new Mechanism2d(1, 1),
+            new Mechanism2d(1, 1),
     };
     /* A direction and length changing ligament for speed representation */
     private final MechanismLigament2d[] m_moduleSpeeds = new MechanismLigament2d[] {
-        m_moduleMechanisms[0].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
-        m_moduleMechanisms[1].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
-        m_moduleMechanisms[2].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
-        m_moduleMechanisms[3].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
+            m_moduleMechanisms[0].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
+            m_moduleMechanisms[1].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
+            m_moduleMechanisms[2].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
+            m_moduleMechanisms[3].getRoot("RootSpeed", 0.5, 0.5).append(new MechanismLigament2d("Speed", 0.5, 0)),
     };
     /* A direction changing and length constant ligament for module direction */
     private final MechanismLigament2d[] m_moduleDirections = new MechanismLigament2d[] {
-        m_moduleMechanisms[0].getRoot("RootDirection", 0.5, 0.5)
-            .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
-        m_moduleMechanisms[1].getRoot("RootDirection", 0.5, 0.5)
-            .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
-        m_moduleMechanisms[2].getRoot("RootDirection", 0.5, 0.5)
-            .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
-        m_moduleMechanisms[3].getRoot("RootDirection", 0.5, 0.5)
-            .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
+            m_moduleMechanisms[0].getRoot("RootDirection", 0.5, 0.5)
+                    .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
+            m_moduleMechanisms[1].getRoot("RootDirection", 0.5, 0.5)
+                    .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
+            m_moduleMechanisms[2].getRoot("RootDirection", 0.5, 0.5)
+                    .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
+            m_moduleMechanisms[3].getRoot("RootDirection", 0.5, 0.5)
+                    .append(new MechanismLigament2d("Direction", 0.1, 0, 0, new Color8Bit(Color.kWhite))),
     };
 
     private final double[] m_poseArray = new double[3];
     private final double[] m_moduleStatesArray = new double[8];
     private final double[] m_moduleTargetsArray = new double[8];
 
-    /** Accept the swerve drive state and telemeterize it to SmartDashboard and SignalLogger. */
+    /**
+     * Accept the swerve drive state and telemeterize it to SmartDashboard and
+     * SignalLogger.
+     */
     public void telemeterize(SwerveDriveState state) {
         /* Telemeterize the swerve drive state */
         drivePose.set(state.Pose);
@@ -102,10 +115,10 @@ public class Telemetry {
         m_poseArray[1] = state.Pose.getY();
         m_poseArray[2] = state.Pose.getRotation().getDegrees();
         for (int i = 0; i < 4; ++i) {
-            m_moduleStatesArray[i*2 + 0] = state.ModuleStates[i].angle.getRadians();
-            m_moduleStatesArray[i*2 + 1] = state.ModuleStates[i].speedMetersPerSecond;
-            m_moduleTargetsArray[i*2 + 0] = state.ModuleTargets[i].angle.getRadians();
-            m_moduleTargetsArray[i*2 + 1] = state.ModuleTargets[i].speedMetersPerSecond;
+            m_moduleStatesArray[i * 2 + 0] = state.ModuleStates[i].angle.getRadians();
+            m_moduleStatesArray[i * 2 + 1] = state.ModuleStates[i].speedMetersPerSecond;
+            m_moduleTargetsArray[i * 2 + 0] = state.ModuleTargets[i].angle.getRadians();
+            m_moduleTargetsArray[i * 2 + 1] = state.ModuleTargets[i].speedMetersPerSecond;
         }
 
         SignalLogger.writeDoubleArray("DriveState/Pose", m_poseArray);
@@ -122,7 +135,8 @@ public class Telemetry {
         SmartDashboard.putNumber("poseY", state.Pose.getY());
         SmartDashboard.putBoolean("isRedteam?", DriverStation.getAlliance().get() == Alliance.Red);
         SmartDashboard.putBoolean("isBlueteam?", DriverStation.getAlliance().get() == Alliance.Blue);
-        SmartDashboard.putBoolean("isBlueTeamDontFlipPath", DriverStation.getAlliance().get() == Alliance.Blue ? false : true);
+        SmartDashboard.putBoolean("isBlueTeamDontFlipPath",
+                DriverStation.getAlliance().get() == Alliance.Blue ? false : true);
 
         /* Telemeterize the module states to a Mechanism2d */
         for (int i = 0; i < 4; ++i) {
@@ -134,6 +148,23 @@ public class Telemetry {
         }
         // field.setRobotPose(state.Pose);
         // SmartDashboard.putData(field);
+        Pose3d goalPose3d = LimelightHelpers.getTargetPose3d_CameraSpace("");
+        Pose2d targetPose = goalPose3d.toPose2d();
+        Pose2d currentPose = state.Pose;
+        Pose2d goalTransformedPose = currentPose
+                .transformBy(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
+        Pose2d goalTransformedPoseTwo = targetPose
+                .transformBy(new Transform2d(currentPose.getTranslation(), currentPose.getRotation()));
+        Pose2d targetRelativePose = targetPose.relativeTo(currentPose);
+        Pose2d targetRelativePoseTwo = currentPose.relativeTo(targetPose);
+        Pose2d transformedPoseTwo = currentPose
+                .plus(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
+        Pose2d transformedPoseThree = targetPose
+                .plus(new Transform2d(currentPose.getTranslation(), currentPose.getRotation()));
+
+        poseReferences.set(new Pose2d[] { goalTransformedPose, goalTransformedPoseTwo, targetPose, targetRelativePose,
+                targetRelativePoseTwo, transformedPoseTwo, transformedPoseThree, new Pose2d() });
+
     }
-    
+
 }

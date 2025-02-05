@@ -32,7 +32,9 @@ import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -184,6 +186,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+        // this.resetPose(new Pose2d(17.069,1.591,new Rotation2d(0.0)));
     }
 
     /**
@@ -301,12 +304,12 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
         LimelightHelpers.SetRobotOrientation("", this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
                 0.0);
-        PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed("");
+        PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed(""); // change depending on alliance
         Pose2d pose = poseEstimate.pose;
         double timestamp = poseEstimate.timestampSeconds;
 
-        this.addVisionMeasurement(pose, timestamp); // check if should use Utis.getCurrentTimestampSeconds() instead of
-                                                    // poseEstimate.timestampSeconds
+        addVisionMeasurement(pose, timestamp); // check if should use Utis.getCurrentTimestampSeconds() instead of
+                                               // poseEstimate.timestampSeconds
 
         if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
             DriverStation.getAlliance().ifPresent(allianceColor -> {
@@ -363,13 +366,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     }
 
     public Command driveToGoalTransform() {
-        return new Command() {
-            double[] goalPoseNumbers = LimelightHelpers.getTargetPose_RobotSpace(""); // check if this is targetPose,
-                                                                                      // transform it to a suitable
-                                                                                      // robotPose
-            Pose2d targetPose = new Pose2d(goalPoseNumbers[0], goalPoseNumbers[1],
-                    Rotation2d.fromDegrees(goalPoseNumbers[4]));
-            Pose2d currentPose = getState().Pose;
+        Command driveCommand = new Command() {
+             Pose3d goalPose3d = LimelightHelpers.getTargetPose3d_CameraSpace("");
+        Pose2d targetPose = goalPose3d.toPose2d();
+        Pose2d currentPose = getState().Pose;
             ProfiledPIDController xController = new ProfiledPIDController(1, 0, 0,
                     new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
             ProfiledPIDController yController = new ProfiledPIDController(1, 0, 0,
@@ -401,6 +401,12 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                                                                                                              // instead
             }
         };
+        double tagNumber = LimelightHelpers.getFiducialID("");
+        if(tagNumber != 9 && tagNumber != 10){
+            return new DoNothing();
+        } else {
+            return driveCommand;
+        }
     }
 
 }
