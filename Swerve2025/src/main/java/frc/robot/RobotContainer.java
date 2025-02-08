@@ -13,6 +13,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.math.filter.SlewRateLimiter;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -73,7 +74,7 @@ public class RobotContainer {
                 // negative X (left)
                 ));
 
-                joystick.y().onTrue(drivetrain.driveToGoalTransform());
+                joystick.y().onTrue(drivetrain.driveToGoalTransform(true,false, new Pose2d(0.6,0.2,Rotation2d.fromDegrees(0.0))));
         // joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         // joystick.b().whileTrue(drivetrain.applyRequest(
         //         () -> point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));

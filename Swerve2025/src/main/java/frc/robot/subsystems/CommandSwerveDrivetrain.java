@@ -30,6 +30,7 @@ import com.pathplanner.lib.util.FlippingUtil;
 
 import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.controller.HolonomicDriveController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -43,6 +44,7 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -302,13 +304,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
          * occurs during testing.
          */
 
-        LimelightHelpers.SetRobotOrientation("", this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
-                0.0);
-        PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed(""); // change depending on alliance
-        Pose2d pose = poseEstimate.pose;
-        double timestamp = poseEstimate.timestampSeconds;
+        // LimelightHelpers.SetRobotOrientation("", this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
+        //         0.0);
+        // PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed(""); // change depending on alliance
+        // Pose2d pose = poseEstimate.pose;
+        // double timestamp = poseEstimate.timestampSeconds;
 
-        addVisionMeasurement(pose, timestamp); // check if should use Utis.getCurrentTimestampSeconds() instead of
+        // addVisionMeasurement(pose, timestamp); // check if should use Utis.getCurrentTimestampSeconds() instead of
                                                // poseEstimate.timestampSeconds
 
         if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
@@ -365,25 +367,39 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return new PathPlannerAuto(autoName, mirror);
     }
 
-    public Command driveToGoalTransform() {
+    public Command driveToGoalTransform(boolean usePose, boolean useTransformedPose, Pose2d possiblePose) { //test with presetPossiblePose
         Command driveCommand = new Command() {
              Pose3d goalPose3d = LimelightHelpers.getTargetPose3d_CameraSpace("");
-        Pose2d targetPose = goalPose3d.toPose2d();
+        Pose2d targetPose = usePose ? possiblePose : goalPose3d.toPose2d();
         Pose2d currentPose = getState().Pose;
-            ProfiledPIDController xController = new ProfiledPIDController(1, 0, 0,
-                    new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
-            ProfiledPIDController yController = new ProfiledPIDController(1, 0, 0,
-                    new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
-            ProfiledPIDController thetaController = new ProfiledPIDController(1, 0, 0,
-                    new TrapezoidProfile.Constraints(1.0, 1.0)); // tune
+        Pose2d transformedTargetPose = currentPose.transformBy(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
+        Pose2d calculatedPose = useTransformedPose ? transformedTargetPose : targetPose;
+        
+            ProfiledPIDController xController = new ProfiledPIDController(3, 0, 0,
+                    new TrapezoidProfile.Constraints(2.5, 1.0)); // tune
+            ProfiledPIDController yController = new ProfiledPIDController(3, 0, 0,
+                    new TrapezoidProfile.Constraints(2.5, 1.0)); // tune
+            ProfiledPIDController thetaController = new ProfiledPIDController(4, 0, 0,
+                    new TrapezoidProfile.Constraints(Units.degreesToRadians(45), 1.0)); // tune
 
             @Override
+            public void initialize() {
+                xController.setTolerance(0.1);
+                yController.setTolerance(0.1);
+                thetaController.setTolerance(Units.degreesToRadians(2));
+                xController.reset(currentPose.getX());
+                yController.reset(currentPose.getY());
+                thetaController.reset(currentPose.getRotation().getRadians());
+            }
+            @Override
             public void execute() {
-                double xVolts = xController.calculate(currentPose.getX(), targetPose.getX());
-                double yVolts = yController.calculate(currentPose.getY(), targetPose.getY());
-                double thetaVolts = thetaController.calculate(currentPose.getRotation().getRadians(),
+                double xVolts = xController.calculate(currentPose.getX(), calculatedPose.getX());
+                double yVolts = yController.calculate(currentPose.getY(), calculatedPose.getY());
+                double thetaVolts = thetaController.calculate(calculatedPose.getRotation().getRadians(),
                         targetPose.getRotation().getRadians());
-                setControl(robotSpeeds.withSpeeds(new ChassisSpeeds(xVolts, yVolts, thetaVolts)));
+                setControl(robotSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(xVolts, yVolts, thetaVolts, currentPose.getRotation())));
+                // HolonomicDriveController controller;
+
 
             }
 
@@ -395,18 +411,20 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
             @Override
             public boolean isFinished() {
-                return xController.atSetpoint() && yController.atSetpoint() && thetaController.atSetpoint(); // omit if
-                                                                                                             // return
+                // return xController.atSetpoint() && yController.atSetpoint() && thetaController.atSetpoint(); // omit if
+                            
+            //   return false;
+            return xController.atGoal() && yController.atGoal() && thetaController.atGoal();// omit if you want to run forever
                                                                                                              // to false
                                                                                                              // instead
             }
         };
         double tagNumber = LimelightHelpers.getFiducialID("");
-        if(tagNumber != 9 && tagNumber != 10){
-            return new DoNothing();
-        } else {
+        // if(tagNumber != 9 && tagNumber != 10){
+        //     return new DoNothing();
+        // } else {
             return driveCommand;
-        }
+        // }
     }
 
 }

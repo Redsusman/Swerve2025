@@ -155,15 +155,10 @@ public class Telemetry {
                 .transformBy(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
         Pose2d goalTransformedPoseTwo = targetPose
                 .transformBy(new Transform2d(currentPose.getTranslation(), currentPose.getRotation()));
-        Pose2d targetRelativePose = targetPose.relativeTo(currentPose);
-        Pose2d targetRelativePoseTwo = currentPose.relativeTo(targetPose);
-        Pose2d transformedPoseTwo = currentPose
-                .plus(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
-        Pose2d transformedPoseThree = targetPose
-                .plus(new Transform2d(currentPose.getTranslation(), currentPose.getRotation()));
+        Pose2d goalPose = new Pose2d(0.6,0.2,Rotation2d.fromDegrees(0.0));
+        Pose2d transformedPoseGoalSet = currentPose.transformBy(new Transform2d(goalPose.getTranslation(), goalPose.getRotation()));
 
-        poseReferences.set(new Pose2d[] { goalTransformedPose, goalTransformedPoseTwo, targetPose, targetRelativePose,
-                targetRelativePoseTwo, transformedPoseTwo, transformedPoseThree, new Pose2d() });
+        poseReferences.set(new Pose2d[] { goalTransformedPose, goalTransformedPoseTwo,goalPose, transformedPoseGoalSet, new Pose2d() });
 
     }
 
