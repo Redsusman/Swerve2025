@@ -31,6 +31,7 @@ import com.pathplanner.lib.util.FlippingUtil;
 import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.controller.HolonomicDriveController;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -82,6 +83,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     private final SwerveRequest.SysIdSwerveSteerGains m_steerCharacterization = new SwerveRequest.SysIdSwerveSteerGains();
     private final SwerveRequest.SysIdSwerveRotation m_rotationCharacterization = new SwerveRequest.SysIdSwerveRotation();
     private SwerveRequest.ApplyRobotSpeeds robotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
+    private SwerveRequest.ApplyFieldSpeeds fieldSpeeds = new SwerveRequest.ApplyFieldSpeeds();
 
     /*
      * SysId routine for characterizing translation. This is used to find PID gains
@@ -304,14 +306,17 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
          * occurs during testing.
          */
 
-        // LimelightHelpers.SetRobotOrientation("", this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
-        //         0.0);
-        // PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed(""); // change depending on alliance
+        // LimelightHelpers.SetRobotOrientation("",
+        // this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
+        // 0.0);
+        // PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed("");
+        // // change depending on alliance
         // Pose2d pose = poseEstimate.pose;
         // double timestamp = poseEstimate.timestampSeconds;
 
-        // addVisionMeasurement(pose, timestamp); // check if should use Utis.getCurrentTimestampSeconds() instead of
-                                               // poseEstimate.timestampSeconds
+        // addVisionMeasurement(pose, timestamp); // check if should use
+        // Utis.getCurrentTimestampSeconds() instead of
+        // poseEstimate.timestampSeconds
 
         if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {
             DriverStation.getAlliance().ifPresent(allianceColor -> {
@@ -367,64 +372,85 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return new PathPlannerAuto(autoName, mirror);
     }
 
-    public Command driveToGoalTransform(boolean usePose, boolean useTransformedPose, Pose2d possiblePose) { //test with presetPossiblePose
-        Command driveCommand = new Command() {
-             Pose3d goalPose3d = LimelightHelpers.getTargetPose3d_CameraSpace("");
-        Pose2d targetPose = usePose ? possiblePose : goalPose3d.toPose2d();
-        Pose2d currentPose = getState().Pose;
-        Pose2d transformedTargetPose = currentPose.transformBy(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
-        Pose2d calculatedPose = useTransformedPose ? transformedTargetPose : targetPose;
-        
-            ProfiledPIDController xController = new ProfiledPIDController(3, 0, 0,
-                    new TrapezoidProfile.Constraints(2.5, 1.0)); // tune
-            ProfiledPIDController yController = new ProfiledPIDController(3, 0, 0,
-                    new TrapezoidProfile.Constraints(2.5, 1.0)); // tune
-            ProfiledPIDController thetaController = new ProfiledPIDController(4, 0, 0,
-                    new TrapezoidProfile.Constraints(Units.degreesToRadians(45), 1.0)); // tune
-
+    public Command driveToPose(Supplier<Pose2d> targetPose) {
+        Pose2d goalPose = targetPose.get();
+        Pose2d robotPose = getState().Pose;
+    
+        // Create profiled PID controllers with constraints
+        ProfiledPIDController xController = new ProfiledPIDController(3, 0, 0, new TrapezoidProfile.Constraints(2.5, 1.0)); // Tune
+        ProfiledPIDController yController = new ProfiledPIDController(3, 0, 0, new TrapezoidProfile.Constraints(2.5, 1.0)); // Tune
+        ProfiledPIDController thetaController = new ProfiledPIDController(4, 0, 0, new TrapezoidProfile.Constraints(Math.PI, Math.PI / 4)); // Tune
+    
+        // Set tolerances for the profiled controllers
+        xController.setTolerance(0.1);
+        yController.setTolerance(0.1);
+        thetaController.setTolerance(Units.degreesToRadians(2));
+        thetaController.enableContinuousInput(-Math.PI, Math.PI);
+    
+        // Reset the profiled controllers with the current pose
+        xController.reset(robotPose.getX());
+        yController.reset(robotPose.getY());
+        thetaController.reset(robotPose.getRotation().getRadians());
+    
+        // Command logic
+        return new Command() {
             @Override
             public void initialize() {
-                xController.setTolerance(0.1);
-                yController.setTolerance(0.1);
-                thetaController.setTolerance(Units.degreesToRadians(2));
-                xController.reset(currentPose.getX());
-                yController.reset(currentPose.getY());
-                thetaController.reset(currentPose.getRotation().getRadians());
+                System.out.println("Drive to Pose Initialized");
             }
+    
             @Override
             public void execute() {
-                double xVolts = xController.calculate(currentPose.getX(), calculatedPose.getX());
-                double yVolts = yController.calculate(currentPose.getY(), calculatedPose.getY());
-                double thetaVolts = thetaController.calculate(calculatedPose.getRotation().getRadians(),
-                        targetPose.getRotation().getRadians());
-                setControl(robotSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(xVolts, yVolts, thetaVolts, currentPose.getRotation())));
-                // HolonomicDriveController controller;
-
-
+                // Update current pose
+                // Pose2d currentRobotPose = getState().Pose;
+    
+                // Calculate the setpoints using the profiled controllers
+                double xSetpoint = xController.calculate(robotPose.getX(), goalPose.getX());
+                double ySetpoint = yController.calculate(robotPose.getY(), goalPose.getY());
+                double thetaSetpoint = thetaController.calculate(robotPose.getRotation().getRadians(), goalPose.getRotation().getRadians());
+    
+                // Apply control inputs to the drivetrain
+                setControl(fieldSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(xSetpoint, ySetpoint, thetaSetpoint, robotPose.getRotation())));
+    
+                System.out.println("Executing Drive to Pose: xSetpoint=" + xSetpoint + ", ySetpoint=" + ySetpoint + ", thetaSetpoint=" + thetaSetpoint);
             }
-
+    
             @Override
             public void end(boolean interrupted) {
-                setControl(new SwerveRequest.ApplyRobotSpeeds().withSpeeds(new ChassisSpeeds(0, 0, 0)));
-
+                // Stop the drivetrain
+                setControl(fieldSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(0, 0, 0, robotPose.getRotation())));
+    
+                System.out.println("Drive to Pose Ended" + (interrupted ? " (interrupted)" : ""));
             }
-
+    
             @Override
             public boolean isFinished() {
-                // return xController.atSetpoint() && yController.atSetpoint() && thetaController.atSetpoint(); // omit if
-                            
-            //   return false;
-            return xController.atGoal() && yController.atGoal() && thetaController.atGoal();// omit if you want to run forever
-                                                                                                             // to false
-                                                                                                             // instead
+                // Check if the profiled controllers have reached their goals
+                boolean finished = xController.atGoal() && yController.atGoal() && thetaController.atGoal();
+                if (finished) {
+                    System.out.println("Drive to Pose Finished");
+                }
+                return finished;
             }
         };
-        double tagNumber = LimelightHelpers.getFiducialID("");
-        // if(tagNumber != 9 && tagNumber != 10){
-        //     return new DoNothing();
-        // } else {
-            return driveCommand;
-        // }
     }
 
+    // public Command driveToApriltag(Pose2d goalPose){
+    //    return new Command() {
+    //         @Override
+    //         public void initialize() {
+    //             System.out.println("Starting to drive to apriltag");
+    //         }
+
+    //         @Override
+    //         public void execute() {
+    //             driveToPose(() -> getState().Pose, () -> goalPose);
+    //         }
+
+    //         @Override
+    //         public boolean isFinished() {
+    //             return false;
+    //         }
+    //     };
+    // }
 }

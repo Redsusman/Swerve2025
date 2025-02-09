@@ -74,7 +74,7 @@ public class RobotContainer {
                 // negative X (left)
                 ));
 
-                joystick.y().onTrue(drivetrain.driveToGoalTransform(true,false, new Pose2d(0.6,0.2,Rotation2d.fromDegrees(0.0))));
+                joystick.y().onTrue(drivetrain.driveToPose(() -> new Pose2d(5,6,new Rotation2d(0))));
         // joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         // joystick.b().whileTrue(drivetrain.applyRequest(
         //         () -> point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));
