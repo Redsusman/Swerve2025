@@ -7,6 +7,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -155,10 +156,13 @@ public class Telemetry {
                 .transformBy(new Transform2d(targetPose.getTranslation(), targetPose.getRotation()));
         Pose2d goalTransformedPoseTwo = targetPose
                 .transformBy(new Transform2d(currentPose.getTranslation(), currentPose.getRotation()));
-        Pose2d goalPose = new Pose2d(6,3,Rotation2d.fromDegrees(0));
-        Pose2d transformedPoseGoalSet = currentPose.transformBy(new Transform2d(goalPose.getTranslation(), goalPose.getRotation()));
-
-        poseReferences.set(new Pose2d[] { goalTransformedPose, goalTransformedPoseTwo,goalPose, transformedPoseGoalSet, new Pose2d() });
+        Pose2d goalPose = new Pose2d(0,2,Rotation2d.fromDegrees(0));
+        Pose2d transformedPoseGoalSet = currentPose.relativeTo(goalPose);
+        Pose2d backupPose = transformedPoseGoalSet.transformBy(new Transform2d(
+    new Translation2d(-1, 0), 
+    new Rotation2d()
+));
+        poseReferences.set(new Pose2d[] { goalTransformedPose, goalTransformedPoseTwo,goalPose, transformedPoseGoalSet, backupPose});
 
     }
 

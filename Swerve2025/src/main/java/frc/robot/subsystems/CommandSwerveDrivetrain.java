@@ -3,6 +3,7 @@ package frc.robot.subsystems;
 import static edu.wpi.first.units.Units.*;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -22,6 +23,7 @@ import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.controllers.PathFollowingController;
+import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.trajectory.PathPlannerTrajectory;
 import com.pathplanner.lib.util.DriveFeedforwards;
@@ -306,15 +308,17 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
          * occurs during testing.
          */
 
-        // LimelightHelpers.SetRobotOrientation("",
-        // this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
-        // 0.0);
+        LimelightHelpers.SetRobotOrientation("",
+                this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
+                0.0);
+
         // PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed("");
         // // change depending on alliance
         // Pose2d pose = poseEstimate.pose;
         // double timestamp = poseEstimate.timestampSeconds;
-
+        // if (LimelightHelpers.validPoseEstimate(poseEstimate)) {
         // addVisionMeasurement(pose, timestamp); // check if should use
+        // }
         // Utis.getCurrentTimestampSeconds() instead of
         // poseEstimate.timestampSeconds
 
@@ -372,61 +376,71 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return new PathPlannerAuto(autoName, mirror);
     }
 
-    public Command driveToPose(Supplier<Pose2d> targetPose) {
-        Pose2d goalPose = targetPose.get();
-        Pose2d robotPose = getState().Pose;
-    
-        // Create profiled PID controllers with constraints
-        ProfiledPIDController xController = new ProfiledPIDController(3, 0, 0, new TrapezoidProfile.Constraints(2.5, 1.0)); // Tune
-        ProfiledPIDController yController = new ProfiledPIDController(3, 0, 0, new TrapezoidProfile.Constraints(2.5, 1.0)); // Tune
-        ProfiledPIDController thetaController = new ProfiledPIDController(4, 0, 0, new TrapezoidProfile.Constraints(Math.PI, Math.PI / 4)); // Tune
-    
-        // Set tolerances for the profiled controllers
+    public Command driveToPose(Supplier<Pose2d> targetPoseSupplier, boolean useBackup) {
+
+        // Create PID controllers with constraints
+        PIDController xController = new PIDController(1, 0, 0); // Tune
+        PIDController yController = new PIDController(1, 0, 0); // Tune
+        PIDController thetaController = new PIDController(2, 0.0, 0.2); // Tune
+        thetaController.enableContinuousInput(-Math.PI, Math.PI);
+
+        // Set tolerances for the controllers
         xController.setTolerance(0.1);
         yController.setTolerance(0.1);
-        thetaController.setTolerance(Units.degreesToRadians(2));
-        thetaController.enableContinuousInput(-Math.PI, Math.PI);
-    
-        // Reset the profiled controllers with the current pose
-        xController.reset(robotPose.getX());
-        yController.reset(robotPose.getY());
-        thetaController.reset(robotPose.getRotation().getRadians());
-    
-        // Command logic
+        thetaController.setTolerance(Units.degreesToRadians(1));
+
+        // Reset the controllers
+        xController.reset();
+        yController.reset();
+        thetaController.reset();
+
         return new Command() {
+            Pose2d transformedPose = null;
+            Pose2d backupPose = null;
+
             @Override
             public void initialize() {
-                System.out.println("Drive to Pose Initialized");
+                Pose2d goalPose = targetPoseSupplier.get();
+                transformedPose = getState().Pose.relativeTo(goalPose);
+                backupPose = transformedPose.transformBy(new Transform2d(
+                        new Translation2d(-1, 0),
+                        new Rotation2d()));
             }
-    
+
             @Override
             public void execute() {
                 // Update current pose
-                // Pose2d currentRobotPose = getState().Pose;
-    
-                // Calculate the setpoints using the profiled controllers
-                double xSetpoint = xController.calculate(robotPose.getX(), goalPose.getX());
-                double ySetpoint = yController.calculate(robotPose.getY(), goalPose.getY());
-                double thetaSetpoint = thetaController.calculate(robotPose.getRotation().getRadians(), goalPose.getRotation().getRadians());
-    
-                // Apply control inputs to the drivetrain
-                setControl(fieldSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(xSetpoint, ySetpoint, thetaSetpoint, robotPose.getRotation())));
-    
-                System.out.println("Executing Drive to Pose: xSetpoint=" + xSetpoint + ", ySetpoint=" + ySetpoint + ", thetaSetpoint=" + thetaSetpoint);
+                Pose2d currentPose = getState().Pose;
+                // Get the target pose and transform it to the current robot frame
+                // Pose2d goalPose = targetPoseSupplier.get();
+                // Pose2d transformedPose = currentPose.relativeTo(goalPose);
+                // Pose2d backupPose = transformedPose.transformBy(new Transform2d(
+                // new Translation2d(-1, 0),
+                // new Rotation2d()));
+                Pose2d goal = useBackup ? backupPose : transformedPose;
+
+                double xSetpoint = xController.calculate(currentPose.getX(), goal.getX());
+                double ySetpoint = yController.calculate(currentPose.getY(), goal.getY());
+                double thetaSetpoint = thetaController.calculate(currentPose.getRotation().getRadians(),
+                        goal.getRotation().getRadians());
+
+                setControl(robotSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(xSetpoint, ySetpoint,
+                        thetaSetpoint, currentPose.getRotation())));
+
             }
-    
+
             @Override
             public void end(boolean interrupted) {
                 // Stop the drivetrain
-                setControl(fieldSpeeds.withSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(0, 0, 0, robotPose.getRotation())));
-    
+                setControl(robotSpeeds.withSpeeds(new ChassisSpeeds(0, 0, 0)));
+
                 System.out.println("Drive to Pose Ended" + (interrupted ? " (interrupted)" : ""));
             }
-    
+
             @Override
             public boolean isFinished() {
-                // Check if the profiled controllers have reached their goals
-                boolean finished = xController.atGoal() && yController.atGoal() && thetaController.atGoal();
+                // Check if the controllers have reached their goals
+                boolean finished = xController.atSetpoint() && yController.atSetpoint() && thetaController.atSetpoint();
                 if (finished) {
                     System.out.println("Drive to Pose Finished");
                 }
@@ -435,22 +449,31 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         };
     }
 
+    public Command pathFindToGoalPose(Supplier<Pose2d> goalPose) {
+        Pose2d goal = goalPose.get();
+        return AutoBuilder.pathfindToPose(goal, new PathConstraints(3.5, 1.5, 1.5 * Math.PI, Math.PI / 4));
+    }
+
+    public Command driveToApriltag() {
+        return driveToPose(() -> LimelightHelpers.getTargetPose3d_CameraSpace("").toPose2d(), true);
+    }
+
     // public Command driveToApriltag(Pose2d goalPose){
-    //    return new Command() {
-    //         @Override
-    //         public void initialize() {
-    //             System.out.println("Starting to drive to apriltag");
-    //         }
+    // return new Command() {
+    // @Override
+    // public void initialize() {
+    // System.out.println("Starting to drive to apriltag");
+    // }
 
-    //         @Override
-    //         public void execute() {
-    //             driveToPose(() -> getState().Pose, () -> goalPose);
-    //         }
+    // @Override
+    // public void execute() {
+    // driveToPose(() -> getState().Pose, () -> goalPose);
+    // }
 
-    //         @Override
-    //         public boolean isFinished() {
-    //             return false;
-    //         }
-    //     };
+    // @Override
+    // public boolean isFinished() {
+    // return false;
+    // }
+    // };
     // }
 }

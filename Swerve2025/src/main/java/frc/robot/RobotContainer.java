@@ -6,6 +6,8 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
+import java.util.Optional;
+
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModule.SteerRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
@@ -74,7 +76,8 @@ public class RobotContainer {
                 // negative X (left)
                 ));
 
-                joystick.y().onTrue(drivetrain.driveToPose(() -> new Pose2d(5,6,new Rotation2d(0))));
+                joystick.y().onTrue(drivetrain.driveToPose(() -> new Pose2d(2,2, new Rotation2d()), true));
+                // joystick.y().onTrue(drivetrain.pathFindToGoalPose(() -> new Pose2d(5,6,new Rotation2d(90))));
         // joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         // joystick.b().whileTrue(drivetrain.applyRequest(
         //         () -> point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));
