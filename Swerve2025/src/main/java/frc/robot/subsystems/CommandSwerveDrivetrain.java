@@ -312,13 +312,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                 this.getPigeon2().getYaw().getValueAsDouble(), 0.0, 0.0, 0.0, 0.0,
                 0.0);
 
-        // PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed("");
-        // // change depending on alliance
-        // Pose2d pose = poseEstimate.pose;
-        // double timestamp = poseEstimate.timestampSeconds;
-        // if (LimelightHelpers.validPoseEstimate(poseEstimate)) {
-        // addVisionMeasurement(pose, timestamp); // check if should use
-        // }
+        PoseEstimate poseEstimate = LimelightHelpers.getBotPoseEstimate_wpiRed("");
+        // change depending on alliance
+        Pose2d pose = poseEstimate.pose;
+        double timestamp = poseEstimate.timestampSeconds;
+        if (LimelightHelpers.validPoseEstimate(poseEstimate)) {
+        addVisionMeasurement(pose, timestamp); // check if should use
+        }
         // Utis.getCurrentTimestampSeconds() instead of
         // poseEstimate.timestampSeconds
 
@@ -405,18 +405,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                 backupPose = transformedPose.transformBy(new Transform2d(
                         new Translation2d(-1, 0),
                         new Rotation2d()));
+                
             }
 
             @Override
             public void execute() {
                 // Update current pose
                 Pose2d currentPose = getState().Pose;
-                // Get the target pose and transform it to the current robot frame
-                // Pose2d goalPose = targetPoseSupplier.get();
-                // Pose2d transformedPose = currentPose.relativeTo(goalPose);
-                // Pose2d backupPose = transformedPose.transformBy(new Transform2d(
-                // new Translation2d(-1, 0),
-                // new Rotation2d()));
                 Pose2d goal = useBackup ? backupPose : transformedPose;
 
                 double xSetpoint = xController.calculate(currentPose.getX(), goal.getX());

@@ -25,6 +25,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.commands.DoNothing;
+import frc.robot.commands.DriveToPose;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 
@@ -76,7 +77,7 @@ public class RobotContainer {
                 // negative X (left)
                 ));
 
-                joystick.y().onTrue(drivetrain.driveToPose(() -> new Pose2d(2,2, new Rotation2d()), true));
+                joystick.y().onTrue(new DriveToPose(() -> drivetrain.getState().Pose, () -> LimelightHelpers.getTargetPose3d_CameraSpace("").toPose2d()));
                 // joystick.y().onTrue(drivetrain.pathFindToGoalPose(() -> new Pose2d(5,6,new Rotation2d(90))));
         // joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         // joystick.b().whileTrue(drivetrain.applyRequest(
