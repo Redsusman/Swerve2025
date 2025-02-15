@@ -77,7 +77,7 @@ public class RobotContainer {
                 // negative X (left)
                 ));
 
-                joystick.y().onTrue(new DriveToPose(() -> drivetrain.getState().Pose, () -> LimelightHelpers.getTargetPose3d_CameraSpace("").toPose2d()));
+                joystick.y().onTrue(new DriveToPose(() -> drivetrain.getState().Pose));
                 // joystick.y().onTrue(drivetrain.pathFindToGoalPose(() -> new Pose2d(5,6,new Rotation2d(90))));
         // joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         // joystick.b().whileTrue(drivetrain.applyRequest(

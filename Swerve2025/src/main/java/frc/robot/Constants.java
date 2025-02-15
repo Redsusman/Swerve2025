@@ -4,6 +4,10 @@
 
 package frc.robot;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismObject2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismRoot2d;
 
@@ -19,5 +23,14 @@ public final class Constants {
   public static class OperatorConstants {
     public static final int kDriverControllerPort = 0;
     
+  }
+
+  public static class AuxiallryConstants {
+    public static List<Translation2d> poseTransforms = new ArrayList<>(){{
+      add(new Translation2d(0,0));
+      add(new Translation2d(0.0,-1));
+      add(new Translation2d(0.5,-1));
+      add(new Translation2d(-0.5,-1));
+    }};
   }
 }
